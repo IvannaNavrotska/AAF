@@ -3,17 +3,15 @@ import re
 COMMANDS = ['CREATE', 'INSERT', 'PRINT_TREE', 'CONTAINS', 'SEARCH']
 
 class RTreeNode:
-    """Вузол R-дерева"""
     def __init__(self, is_leaf=True, segment=None):
         self.is_leaf = is_leaf
-        self.segment = segment  # Bounding box [l, h]
-        self.children = []  # Child nodes or segments
-        self.bbox = segment  # The bounding box
+        self.segment = segment  
+        self.children = []  
+        self.bbox = segment  
         self.left = None
         self.right = None
 
     def update_bbox(self):
-        """Оновлення обмежувальну область на основі дочірніх елементів"""
         if self.is_leaf:
             self.bbox = [min(child[0] for child in self.children), max(child[1] for child in self.children)]
         else:
@@ -21,29 +19,24 @@ class RTreeNode:
 
 
 class RTree:
-    """R-дерево для зберігання множини відрізків"""
     def __init__(self):
         self.root = None
         self.segments = []
 
     def insert(self, segment):
-        """Вставка відрізка в R-дерево"""
         self.segments.append(segment)
         self.root = self._build_tree_recursive(self.segments)
 
     def _build_tree_recursive(self, segments):
-        """Рекурсивна побудова дерева"""
         if len(segments) == 1:
             node = RTreeNode(is_leaf=True, segment=segments[0])
             node.children = segments
             node.update_bbox()
             return node
 
-        # Sort segments by their start point
         segments.sort(key=lambda x: x[0])
         mid = len(segments) // 2
 
-        # Split into two balanced groups
         left_segments = segments[:mid]
         right_segments = segments[mid:]
 
@@ -53,7 +46,6 @@ class RTree:
         return node
 
     def print_tree(self, node=None, level=0, position="Root"):
-        """Вивід дерева з усіма сегментами"""
         if node is None:
             node = self.root
 
@@ -70,7 +62,6 @@ class RTree:
             self.print_tree(node.children[1], level + 1, "Right Child")
 
     def contains(self, segment):
-        """Перевірка входження сегмента [l, h]"""
         L, H = segment
         for l, h in self.segments:
             if l <= L and H <= h:
@@ -78,9 +69,8 @@ class RTree:
         return False
 
     def search(self, query_type=None, params=None):
-        """Пошук відрізків за умовою"""
         results = []
-        if query_type is None:  # No filter
+        if query_type is None:  
             return self.segments
         elif query_type == 'CONTAINS':
             L, H = params
@@ -212,11 +202,10 @@ class Parser:
             return f'Invalid SEARCH command: invalid {query_type} parameters'
 
 
-# Example usage:
+
 def main():
     parser = Parser()
 
-    # Test commands
     test_commands = [
         "CREATE segments",
         "INSERT segments [3, 4]",
