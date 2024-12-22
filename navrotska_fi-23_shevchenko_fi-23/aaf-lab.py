@@ -3,15 +3,17 @@ import re
 COMMANDS = ['CREATE', 'INSERT', 'PRINT_TREE', 'CONTAINS', 'SEARCH']
 
 class RTreeNode:
+    """Вузол R-дерева"""
     def __init__(self, is_leaf=True, segment=None):
         self.is_leaf = is_leaf
-        self.segment = segment  
-        self.children = []  
-        self.bbox = segment  
+        self.segment = segment
+        self.children = []
+        self.bbox = segment
         self.left = None
         self.right = None
 
     def update_bbox(self):
+        """Оновлення обмежувальної області на основі дочірніх елементів"""
         if self.is_leaf:
             self.bbox = [min(child[0] for child in self.children), max(child[1] for child in self.children)]
         else:
@@ -19,15 +21,18 @@ class RTreeNode:
 
 
 class RTree:
+    """R-дерево для зберігання множини відрізків"""
     def __init__(self):
         self.root = None
         self.segments = []
 
     def insert(self, segment):
+        """Вставка відрізка в R-дерево"""
         self.segments.append(segment)
         self.root = self._build_tree_recursive(self.segments)
 
     def _build_tree_recursive(self, segments):
+        """Рекурсивна побудова дерева"""
         if len(segments) == 1:
             node = RTreeNode(is_leaf=True, segment=segments[0])
             node.children = segments
@@ -41,11 +46,15 @@ class RTree:
         right_segments = segments[mid:]
 
         node = RTreeNode(is_leaf=False)
-        node.children = [self._build_tree_recursive(left_segments), self._build_tree_recursive(right_segments)]
+        node.children = [
+            self._build_tree_recursive(left_segments),
+            self._build_tree_recursive(right_segments)
+        ]
         node.update_bbox()
         return node
 
     def print_tree(self, node=None, level=0, position="Root"):
+        """Вивід дерева з усіма сегментами"""
         if node is None:
             node = self.root
 
@@ -62,26 +71,81 @@ class RTree:
             self.print_tree(node.children[1], level + 1, "Right Child")
 
     def contains(self, segment):
+        """Перевірка входження сегмента [l, h]"""
         L, H = segment
         for l, h in self.segments:
             if l <= L and H <= h:
                 return True
         return False
 
+    
     def search(self, query_type=None, params=None):
-        results = []
-        if query_type is None:  
-            return self.segments
+        
+        if query_type is None:
+            condition = lambda seg: True
         elif query_type == 'CONTAINS':
             L, H = params
-            results = [seg for seg in self.segments if seg[0] <= L and H <= seg[1]]
+            condition = lambda seg: seg[0] <= L and H <= seg[1]
         elif query_type == 'INTERSECTS':
             L, H = params
-            results = [seg for seg in self.segments if not (seg[1] < L or H < seg[0])]
+            condition = lambda seg: not (seg[1] < L or H < seg[0])
         elif query_type == 'LEFT_OF':
             x = params
-            results = [seg for seg in self.segments if seg[1] <= x]
+            condition = lambda seg: seg[1] <= x
+        else:
+            raise ValueError(f"Unknown query type: {query_type}")
+
+        return self._search_tree(self.root, condition, query_type, params)
+
+
+    def _search_tree(self, node, condition, query_type=None, params=None):
+        """Рекурсивний пошук по дереву"""
+        results = []
+        if node is None:
+            return results
+
+        if not self._bbox_intersects_query(node.bbox, query_type, params):
+            return results
+
+        if node.is_leaf:
+            for child in node.children:
+                if condition(child):
+                    results.append(child)
+        else:
+            for child in node.children:
+                results.extend(self._search_tree(child, condition, query_type, params))
+
         return results
+
+    
+    def _bbox_intersects_query(self, bbox, query_type, params):
+        
+        if query_type is None:
+            return True
+
+        bbox_left, bbox_right = bbox
+
+        if query_type == 'CONTAINS':
+            L, H = params
+            if bbox_left > L or bbox_right < H:
+                return False
+            return True
+
+        elif query_type == 'INTERSECTS':
+            L, H = params
+            
+            if bbox_right < L or bbox_left > H:
+                return False
+            return True
+
+        elif query_type == 'LEFT_OF':
+            x = params
+            if bbox_left > x:
+                return False
+            return True
+
+        else:
+            return True
 
 
 class Lexer:
@@ -200,7 +264,6 @@ class Parser:
             return f'Search results: {results}'
         except (ValueError, IndexError):
             return f'Invalid SEARCH command: invalid {query_type} parameters'
-
 
 
 def main():
